@@ -66,9 +66,9 @@ def generate_gemini_prediction_native(prompt: str, system_instruction: str) -> s
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": system_instruction}]}
-    }
+     "contents": [{"parts": [{"text": prompt}]}],
+     "system_instruction": {"parts": [{"text": system_instruction}]}
+ }
     
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
