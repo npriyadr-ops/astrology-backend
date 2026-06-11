@@ -64,7 +64,7 @@ def calculate_vedic_coordinates(lat: float, lng: float, birth_date: date, birth_
 
 def generate_gemini_prediction_native(combined_prompt: str) -> str:
     """Uses a clean root content payload layout to guarantee compatibility with Gemini v1 stable"""
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
         "contents": [{
