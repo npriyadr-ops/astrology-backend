@@ -10,7 +10,7 @@ from pydantic import BaseModel
 app = FastAPI(
     title="Vedic CosmicEngine API",
     description="Vedic Astrology calculations and Gemini-powered AI predictions",
-    version="2.2.0"
+    version="2.3.0"
 )
 
 app.add_middleware(
@@ -62,13 +62,15 @@ def calculate_vedic_coordinates(lat: float, lng: float, birth_date: date, birth_
         "current_dasha": current_dasha
     }
 
-def generate_gemini_prediction_native(prompt: str, system_instruction: str) -> str:
+def generate_gemini_prediction_native(combined_prompt: str) -> str:
+    """Uses a clean root content payload layout to guarantee compatibility with Gemini v1 stable"""
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
-     "contents": [{"parts": [{"text": prompt}]}],
-     "system_instruction": {"parts": [{"text": system_instruction}]}
- }
+        "contents": [{
+            "parts": [{"text": combined_prompt}]
+        }]
+    }
     
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -103,22 +105,21 @@ def generate_vedic_horoscope(details: BirthDetails):
     try:
         charts = calculate_vedic_coordinates(details.lat, details.lng, details.birth_date, details.birth_time)
         
-        system_prompt = (
+        # Merging instructions and coordinates together to secure 100% stable v1 payload compatibility
+        unified_prompt = (
+            "INSTRUCTIONS & ROLE:\n"
             "You are an expert Vedic Astrologer (Jyotish Guru). Your voice is deeply mystical, highly encouraging, and empathetic. "
             "Format your predictions clearly into three beautiful sections using Markdown headings: '### 🌟 Soul Pathway', '### 💼 Karma & Career', and '### ⚠️ Cosmic Warning'. "
-            "Use authentic Sanskrit terms with brief parenthetical English translations."
-        )
-        
-        user_prompt = (
-            f"Generate a personalized daily reading for {details.name}. "
-            f"Vedic Chart placements:\n"
+            "Use authentic Sanskrit terms with brief parenthetical English translations.\n\n"
+            "USER BIRTH DETAILS & CALCULATED PLACEMENTS:\n"
+            f"Generate a personalized daily reading for {details.name}.\n"
             f"- Lagna (Ascendant): {charts['lagna']}\n"
             f"- Rashi (Moon Sign): {charts['rashi']}\n"
             f"- Nakshatra: {charts['nakshatra']}\n"
             f"- Active Vimshottari Dasha: {charts['current_dasha']} Dasha.\n"
         )
         
-        prediction = generate_gemini_prediction_native(user_prompt, system_prompt)
+        prediction = generate_gemini_prediction_native(unified_prompt)
         
         return {
             "name": details.name,
