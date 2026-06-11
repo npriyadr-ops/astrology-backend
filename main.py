@@ -1,6 +1,7 @@
 import os
-import time
-import httpx
+import json
+import urllib.request
+import urllib.error
 from datetime import date, time as dt_time
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 app = FastAPI(
     title="Vedic CosmicEngine API",
     description="Vedic Astrology calculations and Gemini-powered AI predictions",
-    version="2.1.0"
+    version="2.2.0"
 )
 
 app.add_middleware(
@@ -61,7 +62,7 @@ def calculate_vedic_coordinates(lat: float, lng: float, birth_date: date, birth_
         "current_dasha": current_dasha
     }
 
-async def generate_gemini_prediction(prompt: str, system_instruction: str) -> str:
+def generate_gemini_prediction_native(prompt: str, system_instruction: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
@@ -69,24 +70,30 @@ async def generate_gemini_prediction(prompt: str, system_instruction: str) -> st
         "systemInstruction": {"parts": [{"text": system_instruction}]}
     }
     
-    async with httpx.AsyncClient() as client:
-        for attempt in range(3):
-            try:
-                response = await client.post(url, json=payload, timeout=30.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    return data["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception:
-                time.sleep(2)
-                
-    raise HTTPException(status_code=502, detail="Stellar pathways are congested. Please execute again.")
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url, 
+        data=data, 
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    
+    try:
+        with urllib.request.urlopen(req, timeout=30.0) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            return res_data["candidates"][0]["content"]["parts"][0]["text"]
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode("utf-8")
+        raise HTTPException(status_code=502, detail=f"API Error: {err_msg}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stellar pathways are congested: {str(e)}")
 
 @app.get("/")
 def read_root():
     return {"status": "Vedic CosmicEngine Online"}
 
 @app.post("/api/v1/vedic/ai-horoscope")
-async def generate_vedic_horoscope(details: BirthDetails):
+def generate_vedic_horoscope(details: BirthDetails):
     if not GEMINI_API_KEY:
         return {
             "status": "success",
@@ -111,7 +118,7 @@ async def generate_vedic_horoscope(details: BirthDetails):
             f"- Active Vimshottari Dasha: {charts['current_dasha']} Dasha.\n"
         )
         
-        prediction = await generate_gemini_prediction(user_prompt, system_prompt)
+        prediction = generate_gemini_prediction_native(user_prompt, system_prompt)
         
         return {
             "name": details.name,
